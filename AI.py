@@ -1,7 +1,6 @@
 import sys
 import io
 import tensorflow as tf
-import tensorflow_datasets as tfds
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -15,29 +14,31 @@ if tf.test.gpu_device_name():
 else:
     print("No GPU found. Running on CPU.")
 
-# Load the EMNIST dataset
-(ds_train, ds_test), ds_info = tfds.load(
-    'emnist/balanced',
-    split=['train', 'test'],
-    shuffle_files=True,
-    as_supervised=True,
-    with_info=True,
+# Load the EMNIST dataset from local files
+def load_emnist_data(image_path, label_path):
+    with open(image_path, 'rb') as imgpath, open(label_path, 'rb') as lblpath:
+        imgpath.read(16)  # skip the header
+        lblpath.read(8)   # skip the header
+        images = np.frombuffer(imgpath.read(), dtype=np.uint8).reshape(-1, 28, 28, 1)
+        labels = np.frombuffer(lblpath.read(), dtype=np.uint8)
+    return images, labels
+
+train_images, train_labels = load_emnist_data(
+    'F:/Git/vscodeAI/AI/Data/emnist-balanced-train-images-idx3-ubyte',
+    'F:/Git/vscodeAI/AI/Data/emnist-balanced-train-labels-idx1-ubyte'
+)
+test_images, test_labels = load_emnist_data(
+    'F:/Git/vscodeAI/AI/Data/emnist-balanced-test-images-idx3-ubyte',
+    'F:/Git/vscodeAI/AI/Data/emnist-balanced-test-labels-idx1-ubyte'
 )
 
 # Normalize the data
-def normalize_img(image, label):
-    return tf.cast(image, tf.float32) / 255.0, label
+train_images = train_images.astype(np.float32) / 255.0
+test_images = test_images.astype(np.float32) / 255.0
 
-ds_train = ds_train.map(normalize_img, num_parallel_calls=tf.data.experimental.AUTOTUNE)
-ds_train = ds_train.cache()
-ds_train = ds_train.shuffle(ds_info.splits['train'].num_examples)
-ds_train = ds_train.batch(32)
-ds_train = ds_train.prefetch(tf.data.experimental.AUTOTUNE)
-
-ds_test = ds_test.map(normalize_img, num_parallel_calls=tf.data.experimental.AUTOTUNE)
-ds_test = ds_test.batch(32)
-ds_test = ds_test.cache()
-ds_test = ds_test.prefetch(tf.data.experimental.AUTOTUNE)
+# Convert to TensorFlow datasets
+ds_train = tf.data.Dataset.from_tensor_slices((train_images, train_labels)).shuffle(10000).batch(32)
+ds_test = tf.data.Dataset.from_tensor_slices((test_images, test_labels)).batch(32)
 
 # Define the model
 model = tf.keras.Sequential([
