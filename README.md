@@ -1,5 +1,5 @@
 # AI
- Neural Networks
+Neural Networks
 Detailed Explanation of the Script
 
 import sys
